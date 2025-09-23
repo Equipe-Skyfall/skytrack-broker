@@ -2,7 +2,7 @@ import mqtt from 'mqtt';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import express from 'express';
-// Load environment variables
+
 dotenv.config();
 class ESP32MQTTServer {
     mqttClient;
@@ -28,7 +28,7 @@ class ESP32MQTTServer {
             console.log('✅ Connected to MongoDB');
             this.db = this.mongoClient.db(process.env.MONGO_DATABASE || 'dadosClima');
             this.collection = this.db.collection('clima');
-            // Create indexes for performance with 1000 ESP32s
+          
             await this.collection.createIndex({ uuid: 1, unixtime: -1 });
             await this.collection.createIndex({ unixtime: -1 });
             this.setupMQTT();
@@ -41,7 +41,7 @@ class ESP32MQTTServer {
     }
     setupExpress() {
         this.app.use(express.json());
-        // Health check endpoint for CI/CD
+      
         this.app.get('/health', (req, res) => {
             res.status(200).json({
                 status: 'healthy',
@@ -50,7 +50,7 @@ class ESP32MQTTServer {
                 uptime: process.uptime()
             });
         });
-        // Basic stats endpoint
+ 
         this.app.get('/stats', (req, res) => {
             res.json({
                 messagesProcessed: this.messageCount,
@@ -101,11 +101,11 @@ class ESP32MQTTServer {
             return;
         }
         try {
-            // Parse JSON message - flexible for any sensor data
+           
             const messageData = JSON.parse(message.toString());
-            // Store only the ESP32 data (no server additions)
+
             await this.collection.insertOne(messageData);
-            // Log every 10 messages for monitoring
+         
             if (this.messageCount % 10 === 0) {
                 const uuid = messageData.uuid || 'unknown';
                 const sensors = Object.keys(messageData).filter(key => !['uuid', 'unixtime'].includes(key)).join(', ');

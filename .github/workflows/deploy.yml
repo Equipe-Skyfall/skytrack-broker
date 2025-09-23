@@ -2,14 +2,14 @@ name: Deploy ESP32 Sensor Server
 
 on:
   push:
-    branches: [main, production]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:  # Allow manual triggers
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: testeaws
+  ECR_REPOSITORY: mqtt-data-retriever  #repositório na AWS
   ECS_SERVICE: esp32-sensor-service
   ECS_CLUSTER: esp32-cluster
 
@@ -17,7 +17,7 @@ jobs:
  
   build-and-deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code

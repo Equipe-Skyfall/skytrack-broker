@@ -1,7 +1,3 @@
-# Docker Compose for ESP32 Sensor Data Server
-# Use for development and production deployment
-
-version: '3.8'
 
 services:
   sensor-server:
@@ -28,10 +24,10 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
 
       # Optional: MQTT Configuration (if using local MQTT broker)
-      - MQTT_HOST=${MQTT_HOST:-166d9acce84b47e48593e715d2114d59.s1.eu.hivemq.cloud}
+      - MQTT_HOST=${MQTT_HOST:- URL DO SEU BROKER}
       - MQTT_PORT=${MQTT_PORT:-8883}
-      - MQTT_USERNAME=${MQTT_USERNAME:-skytrack}
-      - MQTT_PASSWORD=${MQTT_PASSWORD:-123456789Skytrack}
+      - MQTT_USERNAME=${MQTT_USERNAME:- USUARIO}
+      - MQTT_PASSWORD=${MQTT_PASSWORD:- SENHA}
 
     # Restart policy for production
     restart: unless-stopped
@@ -44,7 +40,7 @@ services:
       retries: 3
       start_period: 40s
 
-    # Resource limits for AWS EC2 deployment
+   
     deploy:
       resources:
         limits:
@@ -54,41 +50,20 @@ services:
           cpus: '0.25'
           memory: 128M
 
-    # Logging configuration
+   
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-    # Labels for organization
+   
     labels:
       - "project=esp32-sensors"
       - "service=data-server"
       - "environment=${NODE_ENV:-production}"
 
-# Optional: Add monitoring with Prometheus/Grafana
-# Uncomment if you want monitoring on EC2
-#
-#  prometheus:
-#    image: prom/prometheus:latest
-#    container_name: prometheus
-#    ports:
-#      - "9090:9090"
-#    volumes:
-#      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-#    restart: unless-stopped
-#
-#  grafana:
-#    image: grafana/grafana:latest
-#    container_name: grafana
-#    ports:
-#      - "3001:3000"
-#    environment:
-#      - GF_SECURITY_ADMIN_PASSWORD=admin
-#    restart: unless-stopped
 
-# Network for service communication
 networks:
   default:
     name: esp32-sensor-network
