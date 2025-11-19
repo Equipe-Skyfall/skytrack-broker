@@ -18,7 +18,7 @@
     "express",
     "mongodb"
   ],
-  "author": "Your Name",
+  "author": "Skytrack",
   "license": "MIT",
   "dependencies": {
     "@types/node": "^24.5.1",
