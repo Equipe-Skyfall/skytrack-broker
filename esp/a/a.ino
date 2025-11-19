@@ -19,8 +19,8 @@
 // ============================================================
 
 // Sensor Pins
-#define DHTPIN 14                    // DHT22 temperature/humidity sensor
-#define PHOTOSENSOR_PIN 32           // TEMT6000 light sensor (analog input)
+#define DHTPIN 32                    // DHT22 temperature/humidity sensor
+#define PHOTOSENSOR_PIN 14           // TEMT6000 light sensor (analog input)
 #define BUZZER_PIN 13                // Active buzzer for temperature alarm
 
 // Sensor Configuration
