@@ -9,13 +9,30 @@
 
 # env:
 #   AWS_REGION: us-east-1
-#   ECR_REPOSITORY: mqtt-data-retriever  #repositório na AWS
+#   ECR_REPOSITORY: mqtt-data-retriever
 #   ECS_SERVICE: esp32-sensor-service
 #   ECS_CLUSTER: esp32-cluster
 
 # jobs:
- 
+#   test:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '18'
+
+#       - name: Install dependencies
+#         run: npm install
+
+#       - name: Run tests
+#         run: npm test
+
 #   build-and-deploy:
+#     needs: test
 #     runs-on: ubuntu-latest
 #     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/main'
 
@@ -38,17 +55,14 @@
 #       - name: Get secrets from AWS Secrets Manager
 #         id: get-secrets
 #         run: |
-#           # Get MongoDB connection string
 #           MONGO_SECRET=$(aws secretsmanager get-secret-value \
 #             --secret-id "mongo" \
 #             --query SecretString --output text)
 
-#           # Get MQTT credentials
 #           MQTT_SECRET=$(aws secretsmanager get-secret-value \
-#           --secret-id "mqtt" \
-#           --query SecretString --output text)
+#             --secret-id "mqtt" \
+#             --query SecretString --output text)
 
-#           # Parse and export secrets (they should be JSON format)
 #           echo "MONGO_CONNECTION_STRING=$(echo $MONGO_SECRET | jq -r '.connectionString')" >> $GITHUB_ENV
 #           echo "MONGO_DATABASE=$(echo $MONGO_SECRET | jq -r '.database')" >> $GITHUB_ENV
 #           echo "MQTT_HOST=$(echo $MQTT_SECRET | jq -r '.host')" >> $GITHUB_ENV
@@ -60,11 +74,9 @@
 #           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
 #           IMAGE_TAG: ${{ github.sha }}
 #         run: |
-#           # Build Docker image
 #           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
 #           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
 
-#           # Push to ECR
 #           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 #           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
@@ -76,31 +88,24 @@
 #           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
 #           IMAGE_TAG: ${{ github.sha }}
 #         run: |
-#           # Setup SSH
 #           mkdir -p ~/.ssh
 #           echo "$EC2_KEY" > ~/.ssh/id_rsa
 #           chmod 600 ~/.ssh/id_rsa
 #           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
-#           # SSH into EC2 and run deployment commands
-#           # We pass the AWS credentials from the runner to the EC2 session
 #           ssh -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" "
 #             export AWS_ACCESS_KEY_ID='${{ env.AWS_ACCESS_KEY_ID }}'
 #             export AWS_SECRET_ACCESS_KEY='${{ env.AWS_SECRET_ACCESS_KEY }}'
 #             export AWS_SESSION_TOKEN='${{ env.AWS_SESSION_TOKEN }}'
-#             set -e # Exit script on any error
+#             set -e
 
-#             echo 'Logging into AWS ECR...'
 #             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-#             echo 'Pulling the latest Docker image...'
 #             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-#             echo 'Stopping and removing old container...'
 #             docker stop esp32-sensor-server || true
 #             docker rm esp32-sensor-server || true
 
-#             echo 'Starting new container with secrets...'
 #             docker run -d \
 #               --name esp32-sensor-server \
 #               --restart unless-stopped \
@@ -114,24 +119,20 @@
 #               -e PORT=3000 \
 #               $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-#             echo 'Cleaning up old images...'
 #             docker image prune -f
 
-#             echo '✅ Deployment completed successfully!'
+#             echo 'Deployment completed successfully!'
 #           "
 
 #       - name: Verify deployment
 #         env:
 #           EC2_HOST: ${{ secrets.EC2_HOST }}
 #         run: |
-#           # Wait for service to be ready
 #           sleep 30
-
-#           # Check if service is responding
 #           if curl -f http://$EC2_HOST:3000/health; then
-#             echo "✅ Service is healthy and responding"
+#             echo "Service is healthy"
 #           else
-#             echo "❌ Service health check failed"
+#             echo "Service health check failed"
 #             exit 1
 #           fi
 
@@ -139,7 +140,7 @@
 #         if: always()
 #         run: |
 #           if [ ${{ job.status }} == 'success' ]; then
-#             echo "🚀 Deployment to ${{ github.ref_name }} completed successfully!"
+#             echo "Deployment completed!"
 #           else
-#             echo "❌ Deployment failed"
+#             echo "Deployment failed"
 #           fi
