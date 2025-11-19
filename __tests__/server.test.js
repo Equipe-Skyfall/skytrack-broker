@@ -1,23 +1,54 @@
-const fs = require('fs').promises;
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
-describe('dist/server.js content checks', () => {
-  const filePath = path.resolve(__dirname, '..', 'dist', 'server.js');
+jest.mock("mqtt", () => {
+  const { EventEmitter: mockEventEmitter } = require("events");
 
-  test('file exists and contains expected classes and methods', async () => {
-    const content = await fs.readFile(filePath, 'utf8');
+  return {
+    connect: jest.fn(() => {
+      const c = new mockEventEmitter();
+      c.subscribe = jest.fn((topic, cb) => cb && cb(null));
+      c.end = jest.fn();
+      c.connected = false;
+      return c;
+    })
+  };
+});
 
-    // Check for main classes
+jest.mock("express", () => {
+  return () => ({
+    listen: jest.fn((port, cb) => cb && cb()),
+    use: jest.fn()
+  });
+});
+
+jest.mock("mongodb", () => {
+  return {
+    MongoClient: jest.fn().mockImplementation(() => ({
+      connect: jest.fn().mockResolvedValue(true),
+      db: () => ({
+        collection: () => ({
+          insertOne: jest.fn().mockResolvedValue(true)
+        })
+      })
+    }))
+  };
+});
+
+describe("dist/server.js content checks", () => {
+  const filePath = path.resolve(__dirname, "..", "dist", "server.js");
+
+  test("file exists and contains expected classes and methods", async () => {
+    const content = await fs.promises.readFile(filePath, "utf8");
+
     expect(content).toMatch(/class\s+MessageQueue/);
     expect(content).toMatch(/class\s+BatchProcessor/);
     expect(content).toMatch(/class\s+ESP32MQTTServer/);
 
-    // Check for important queue methods
     expect(content).toMatch(/enqueue\(/);
     expect(content).toMatch(/dequeueBatch\(/);
     expect(content).toMatch(/markProcessed\(/);
 
-    // Check for start/stop server lifecycle
     expect(content).toMatch(/server\.start\(\)/);
     expect(content).toMatch(/process\.on\('SIGINT'/);
   });

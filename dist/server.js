@@ -293,3 +293,9 @@ process.on('SIGTERM', async () => {
     await server.stop();
     process.exit(0);
 });
+
+module.exports = {
+  MessageQueue,
+  BatchProcessor,
+  ESP32MQTTServer
+};
