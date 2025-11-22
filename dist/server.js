@@ -212,7 +212,7 @@ class ESP32MQTTServer {
         });
     }
     startHttpServer() {
-        const port = process.env.PORT || 3000;
+        const port = process.env.BROKER_PORT || 3000;
         this.app.listen(port, () => {
             // console.log(`🌐 HTTP server running on port ${port}`);
             // console.log(`🩺 Health check: http://localhost:${port}/health`);
