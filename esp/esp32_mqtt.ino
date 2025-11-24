@@ -1,4 +1,3 @@
-
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <DHT_U.h>
@@ -7,96 +6,89 @@
 #include <PubSubClient.h>
 #include <time.h>
 
-#define DHTPIN 18 //pino
-#define DHTTYPE DHT22 //tipo do sensor
+// ============================
+// --- CONFIGURATION ---
+// ============================
+#define DHTPIN 14         // DHT22 data pin
+#define DHTTYPE DHT22    // Sensor type
+#define PHOTOSENSOR_PIN 32  // TEMT6000 photosensor pin (ADC1 - safe with WiFi)
+#define BUZZER_PIN 13       // Buzzer pin
+#define TEMP_ALARM_THRESHOLD 30.0  // Temperature threshold in °C (adjust as needed)
 
-//config do wifi
-const char* ssid = "Suhefa1"; //nome do wifi
-const char* password = "Fa147258@"; // senha
+// WiFi credentials
+const char* ssid = "Ichiban";
+const char* password = "12345678";
 
-//config do mqtt
-const char* mqtt_server = "166d9acce84b47e48593e715d2114d59.s1.eu.hivemq.cloud"; //url do servidor mqtt
+// MQTT configuration
+const char* mqtt_server = "166d9acce84b47e48593e715d2114d59.s1.eu.hivemq.cloud";
 const int mqtt_port = 8883;
 const char* mqtt_user = "skytrack";
 const char* mqtt_pass = "123456789Skytrack";
 
+// ============================
+// --- OBJECTS ---
+// ============================
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
-
 DHT_Unified dht(DHTPIN, DHTTYPE);
-uint32_t delayMS;
-String macAddress;
 
+uint32_t delayMS = 2000; // 2-second interval for testing
+String macAddress;
 unsigned long lastReconnectAttempt = 0;
 
+// ============================
+// --- SETUP ---
+// ============================
 void setup() {
-  // Serial.begin(115200);
-  // delay(2000);
+  Serial.begin(115200);   // <-- Important: ESP32 default baud rate
+  delay(1000);
 
-  // Serial.println(F("ESP32 DHT22 MQTT Client"));
-  // Serial.println(F("======================="));
-
+  Serial.println();
+  Serial.println(F("=== ESP32 DHT22 MQTT Client (Test Mode) ==="));
 
   WiFi.mode(WIFI_MODE_STA);
-
-
   setupWiFi();
 
-  //pega o MAC ADDRESS
+  // Get MAC address (used as UUID and MQTT topic)
   macAddress = WiFi.macAddress();
+  Serial.print("MAC Address: ");
+  Serial.println(macAddress);
 
-  // Serial.print(F("MAC Address: "));
-  // Serial.println(macAddress);
-  String topicMac = macAddress;
-  topicMac.replace(":", "");
-  // Serial.print(F("Topic: weather/"));
-  // Serial.print(topicMac);
-  // Serial.println(F("/data"));
-
-  
+  // Setup MQTT (TLS insecure mode for HiveMQ Cloud)
   espClient.setInsecure();
   client.setServer(mqtt_server, mqtt_port);
 
- 
-  // Serial.println(F("Synchronizing time with NTP..."));
+  // Sync time (required for secure connection)
+  Serial.println("Syncing time...");
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-
-  // Serial.print(F("Waiting for time sync"));
   time_t now = time(nullptr);
   int attempts = 0;
   while (now < 1000000000L && attempts < 20) {
     delay(500);
-    // Serial.print(F("."));
+    Serial.print(".");
     now = time(nullptr);
     attempts++;
   }
-  // Serial.println();
+  Serial.println();
+  Serial.println("Time synced!");
 
-  // if (now > 1000000000L) {
-  //   Serial.print(F("✅ Time synchronized: "));
-  //   Serial.println(ctime(&now));
-  // } else {
-  //   Serial.println(F("⚠️ Time sync failed, using boot time"));
-  // }
-
-
+  // Initialize DHT sensor
   dht.begin();
-  delay(1000);
+  Serial.println("DHT22 initialized!");
 
-  // lendo a cada 5 minutos
-  sensor_t sensor;
-  dht.temperature().getSensor(&sensor);
-  delayMS = sensor.min_delay / 1000;
-  if (delayMS < 300000) {
-    delayMS = 300000;
-  }
+  // Initialize photosensor and buzzer pins
+  pinMode(PHOTOSENSOR_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
+  Serial.println("Photosensor and Buzzer initialized!");
 
-  // Serial.println(F("Starting sensor readings..."));
-  // Serial.println();
+  Serial.println("============================================");
 }
 
+// ============================
+// --- MAIN LOOP ---
+// ============================
 void loop() {
-
   if (!client.connected()) {
     long now = millis();
     if (now - lastReconnectAttempt > 5000) {
@@ -115,146 +107,117 @@ void loop() {
     readAndSendSensorData();
   }
 
-  delay(1000);
+  delay(100);
 }
 
+// ============================
+// --- FUNCTIONS ---
+// ============================
 void setupWiFi() {
-  WiFi.begin(ssid, password);
-  // Serial.print(F("Connecting to WiFi"));
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(ssid);
 
+  WiFi.begin(ssid, password);
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
-    // Serial.print(F("."));
+    Serial.print(".");
     attempts++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    // Serial.println();
-    // Serial.println(F("WiFi connected!"));
-    // Serial.print(F("IP address: "));
-    // Serial.println(WiFi.localIP());
-    // Serial.print(F("MQTT Server: "));
-    // Serial.print(mqtt_server);
-    // Serial.print(F(":"));
-    // Serial.println(mqtt_port);
+    Serial.println();
+    Serial.print("✅ WiFi connected! IP: ");
+    Serial.println(WiFi.localIP());
   } else {
-    // Serial.println();
-    // Serial.println(F("WiFi connection failed!"));
-    // Serial.println(F("Restarting ESP32..."));
+    Serial.println();
+    Serial.println("❌ WiFi connection failed! Restarting...");
     ESP.restart();
   }
-  // Serial.println(F("======================="));
 }
 
 bool reconnectMQTT() {
   if (WiFi.status() != WL_CONNECTED) {
-    // Serial.println(F("WiFi disconnected, reconnecting..."));
     setupWiFi();
     return false;
   }
 
-  // Serial.print(F("Attempting MQTT connection..."));
-
-
+  Serial.print("Connecting to MQTT...");
   String clientId = "ESP32_" + macAddress;
-
   if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
-    // Serial.println(F(" connected!"));
+    Serial.println("✅ connected!");
     return true;
   } else {
-    // Serial.print(F(" failed, rc="));
-    // Serial.print(client.state());
-    // Serial.println(F(" retrying in 5 seconds"));
+    Serial.print("❌ failed, rc=");
+    Serial.println(client.state());
     return false;
   }
 }
 
 void readAndSendSensorData() {
-
   sensors_event_t event;
   float temperature = NAN;
   float humidity = NAN;
-  bool hasValidData = false;
+  int lightLevel = 0;
 
+  // Read temperature
   dht.temperature().getEvent(&event);
-  if (!isnan(event.temperature)) {
-    temperature = event.temperature;
-    hasValidData = true;
-  }
+  if (!isnan(event.temperature)) temperature = event.temperature;
 
+  // Read humidity
   dht.humidity().getEvent(&event);
-  if (!isnan(event.relative_humidity)) {
-    humidity = event.relative_humidity;
-    hasValidData = true;
+  if (!isnan(event.relative_humidity)) humidity = event.relative_humidity;
+
+  // Read photosensor (light level)
+  lightLevel = analogRead(PHOTOSENSOR_PIN);
+
+  // Check temperature alarm (only if we have valid readings and reasonable values)
+  if (!isnan(temperature) && temperature > 0 && temperature < 85 && temperature > TEMP_ALARM_THRESHOLD) {
+    // Trigger buzzer alarm
+    tone(BUZZER_PIN, 1000, 500); // 1000Hz tone for 500ms
+    Serial.println("🔔 ALARM: Temperature exceeded threshold!");
+  } else {
+    // Ensure buzzer is off when not alarming
+    noTone(BUZZER_PIN);
   }
 
-  // Serial.println(F("--- Sensor Reading ---"));
-  // Serial.print(F("Device: "));
-  // Serial.println(macAddress);
+  // Print readings to Serial
+  Serial.println("------ SENSOR READINGS ------");
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" °C");
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.println(" %");
+  Serial.print("Light Level: ");
+  Serial.print(lightLevel);
+  Serial.println(" (0-4095)");
+  Serial.println("-----------------------------");
 
-  // if (!isnan(temperature)) {
-  //   Serial.print(F("Temperature: "));
-  //   Serial.print(temperature);
-  //   Serial.println(F("°C"));
-  // } else {
-  //   Serial.println(F("Error reading temperature!"));
-  // }
-
-  // if (!isnan(humidity)) {
-  //   Serial.print(F("Humidity: "));
-  //   Serial.print(humidity);
-  //   Serial.println(F("%"));
-  // } else {
-  //   Serial.println(F("Error reading humidity!"));
-  // }
-
-  if (hasValidData && client.connected()) {
-
+  // Send data to MQTT
+  if (client.connected() && !isnan(temperature) && !isnan(humidity)) {
     time_t now = time(nullptr);
     unsigned long unixtime = now;
-    //formatando a resposta
+
     String payload = "{";
     payload += "\"uuid\":\"" + macAddress + "\",";
     payload += "\"unixtime\":" + String(unixtime) + ",";
-
-    if (!isnan(temperature)) {
-      payload += "\"temperatura\":" + String(temperature, 1) + ",";
-    }
-    if (!isnan(humidity)) {
-      payload += "\"umidade\":" + String(humidity, 1);
-    }
-
-
-    if (payload.endsWith(",")) {
-      payload = payload.substring(0, payload.length() - 1);
-    }
-
+    payload += "\"temperatura\":" + String(temperature, 1) + ",";
+    payload += "\"umidade\":" + String(humidity, 1) + ",";
+    payload += "\"luz\":" + String(lightLevel);
     payload += "}";
 
- 
     String topicMac = macAddress;
     topicMac.replace(":", "");
     String topic = "weather/" + topicMac + "/data";
+
     if (client.publish(topic.c_str(), payload.c_str())) {
-      // Serial.print(F("✅ Data sent: "));
-      // Serial.print(topic);
-      // Serial.print(F(" = "));
-      // Serial.println(payload);
-      // Serial.println(F("📡 All data sent successfully!"));
+      Serial.println("✅ MQTT Publish Success:");
+      Serial.println(payload);
     } else {
-      // Serial.println(F("❌ Failed to send data"));
+      Serial.println("❌ MQTT Publish Failed");
     }
-
   } else {
-    // if (!hasValidData) {
-    //   Serial.println(F("⚠️  No valid sensor data to send"));
-    // }
-    // if (!client.connected()) {
-    //   Serial.println(F("⚠️  MQTT not connected"));
-    // }
+    Serial.println("⚠️ MQTT not connected or invalid data!");
   }
-
-  // Serial.println(F("---------------------"));
-  // Serial.println();
 }

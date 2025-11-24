@@ -20,9 +20,8 @@ class MessageQueue {
   async initialize(db: Db): Promise<void> {
     this.collection = db.collection('climate_queue');
 
-   
+    // Create index for efficient timestamp queries
     await this.collection.createIndex({ timestamp: 1 }); 
-    await this.collection.createIndex({ timestamp: 1 }, { expireAfterSeconds: 86400 }); 
 
     // Get initial queue depth
     this.queueStats.currentDepth = await this.collection.countDocuments();
@@ -288,48 +287,50 @@ class ESP32MQTTServer {
   //subscreve no mqtt broker
   private setupMQTT(): void {
     this.mqttClient.on('connect', () => {
-      // console.log('🔗 Connected to MQTT broker');
+      console.log('🔗 Connected to MQTT broker');
       this.mqttClient.subscribe('weather/+/data', (err) => {
         if (err) {
-          // console.error('❌ Failed to subscribe:', err);
+          console.error('❌ Failed to subscribe:', err);
         } else {
-          // console.log('📡 Subscribed to weather/+/data');
+          console.log('📡 Subscribed to weather/+/data');
         }
       });
     });
 
     this.mqttClient.on('message', async (topic: string, message: Buffer) => {
+      // console.log(`📨 Received MQTT message on topic: ${topic}`);
+      // console.log(`   Payload: ${message.toString()}`);
       try {
         await this.processMessage(topic, message);
         this.messageCount++;
 
-        // if (this.messageCount % 100 === 0) {
-        //   console.log(`📊 Processed ${this.messageCount} messages`);
-        // }
+        if (this.messageCount % 100 === 0) {
+          console.log(`📊 Processed ${this.messageCount} messages`);
+        }
       } catch (error) {
-        // console.error('❌ Error processing message:', error);
+        console.error('❌ Error processing message:', error);
       }
     });
 
     this.mqttClient.on('error', (error) => {
-      // console.error('❌ MQTT error:', error);
+      console.error('❌ MQTT error:', error);
     });
   }
 
   private async processMessage(topic: string, message: Buffer): Promise<void> {
     const topicParts = topic.split('/');
     if (topicParts.length !== 3 || topicParts[0] !== 'weather' || topicParts[2] !== 'data') {
+      // console.log(`⚠️  Message ignored - topic doesn't match pattern: ${topic}`);
       return;
     }
 
     try {
-    
       const messageData = JSON.parse(message.toString());
+      // console.log(`✅ Message validated and queuing...`);
 
-    
       await this.messageQueue.enqueue(messageData);
+      // console.log(`✅ Message queued successfully`);
 
-   
       if (this.messageCount % 100 === 0) {
         const queueStats = this.messageQueue.getStats();
         console.log(`📊 Received ${this.messageCount} messages | Queue depth: ${queueStats.currentDepth}`);
